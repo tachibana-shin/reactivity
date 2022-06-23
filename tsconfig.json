@@ -9,7 +9,7 @@
     "moduleResolution": "node",
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
-    "types": ["node", "vitest/globals"],
+    "types": ["node"],
     "resolveJsonModule": true,
   },
   "include": [

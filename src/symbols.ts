@@ -1,0 +1,6 @@
+export const SYMBOL_RAW = Symbol("raw")
+export const SYMBOL_READONLY = Symbol("readonly")
+export const SYMBOL_SKIP = Symbol("skip")
+export const SYMBOL_REF = Symbol("ref")
+export const SYMBOL_SHALLOW = Symbol("shallow")
+export const SYMBOL_FORCE_UPDATE = Symbol("force update")
