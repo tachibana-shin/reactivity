@@ -65,6 +65,7 @@
     "node": ">=10"
   },
   "dependencies": {
-    "@vue/reactivity": "^3.2.37"
+    "@vue/reactivity": "^3.2.37",
+    "vue": "^3.2.37"
   }
 }

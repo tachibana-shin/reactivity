@@ -1,14 +1,9 @@
 import toRaw from "../helpers/toRaw"
 import { SYMBOL_READONLY, SYMBOL_REF } from "../symbols"
 
-import type { TrackEffect } from "./tracker"
-import {
-  addListenerTrackEffect,
-  createTrackEffect,
-  emitGetter,
-  emitSetter,
-  removeListenerTrackEffect
-} from "./tracker"
+import TrackerEffect from "./TrackerEffect"
+import type { UnwrapRef } from "./ref"
+import { emitGetter, emitSetter } from "./tracker"
 
 const setterDefault = () => {
   // eslint-disable-next-line no-undef
@@ -17,36 +12,29 @@ const setterDefault = () => {
 }
 class ComputedImplement<T> {
   public readonly [SYMBOL_REF] = true
-  private readonly [SYMBOL_READONLY]?: true
+  public readonly [SYMBOL_READONLY]?: true
   private _ruv = true
   private _v?: T
-  private _ge?: TrackEffect
-  private _ru: () => void
+  public effect: TrackerEffect<T>
+
   constructor(
     private readonly _getter: () => T,
     private readonly _setter: (value: T) => void,
     readonly?: boolean
   ) {
-    this._ru = () => {
+    this.effect = new TrackerEffect(this._getter, () => {
       if (!this._ruv) {
         this._ruv = true
         emitSetter(this, "set", "value", undefined, undefined)
       }
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      removeListenerTrackEffect(this._ge!, this._ru)
-    }
+    })
 
     if (readonly) this[SYMBOL_READONLY] = true
   }
 
   get value(): T {
     if (this._ruv) {
-      const cancelTrack = createTrackEffect()
-      const val = this._getter()
-      this._ge = cancelTrack()
-      addListenerTrackEffect(this._ge, this._ru)
-
-      this._v = val
+      this._v = this.effect.run()
       this._ruv = false
     }
 
@@ -62,12 +50,26 @@ class ComputedImplement<T> {
   }
 }
 
+export interface WritableComputedRef<T> {
+  [SYMBOL_REF]: true
+  value: UnwrapRef<T>
+  effect: Pick<TrackerEffect<T>, "stop">
+}
+export interface ReadableComputedRef<T> {
+  [SYMBOL_REF]: true
+  [SYMBOL_READONLY]: true
+  readonly value: UnwrapRef<T>
+  effect: Pick<TrackerEffect<T>, "stop">
+}
+
+type Computed<T> = ReadableComputedRef<T> | WritableComputedRef<T>
+
 function computed<T>(options: {
   get: () => T
   set?: (value: T) => void
-}): ComputedImplement<T>
+}): WritableComputedRef<T>
 // eslint-disable-next-line no-redeclare
-function computed<T>(getter: () => T): ComputedImplement<T>
+function computed<T>(getter: () => T): ReadableComputedRef<T>
 // eslint-disable-next-line no-redeclare
 function computed<T>(
   options:
@@ -76,7 +78,7 @@ function computed<T>(
         get: () => T
         set?: (value: T) => void
       }
-): ComputedImplement<T> {
+): Computed<T> {
   // eslint-disable-next-line functional/no-let
   let getter: () => T, setter: (value: T) => void
   // eslint-disable-next-line functional/no-let
@@ -84,6 +86,7 @@ function computed<T>(
 
   if (typeof options === "function") {
     getter = options
+    setter = setterDefault
     onlyGetter = true
   } else {
     getter = options.get
@@ -92,11 +95,10 @@ function computed<T>(
 
   return new ComputedImplement<T>(
     getter,
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    setter!,
+    setter,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onlyGetter || !(options as any).set
-  )
+  ) as unknown as Computed<T>
 }
 
 export default computed

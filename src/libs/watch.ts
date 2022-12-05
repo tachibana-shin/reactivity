@@ -6,13 +6,9 @@ import noop from "../noop"
 import { SYMBOL_FORCE_UPDATE, SYMBOL_SKIP } from "../symbols"
 import isObject from "../utils/isObject"
 
+import TrackerEffect from "./TrackerEffect"
 import type { Ref } from "./ref"
-import type { TrackEffect } from "./tracker"
-import {
-  addListenerTrackEffect,
-  createTrackEffect,
-  removeListenerTrackEffect
-} from "./tracker"
+import reactive from "./reactive"
 
 type WatchSource<T> = Ref<T> | (() => T)
 type MapSources<T, Immediate> = {
@@ -124,36 +120,29 @@ function watch<T = any, Immediate extends Readonly<boolean> = false>(
   }
 
   // eslint-disable-next-line functional/no-let
-  let getters: TrackEffect
-  // eslint-disable-next-line functional/no-let
-  let stop = false
-  const start = () => {
-    if (stop === true) return
-    removeListenerTrackEffect(getters, start)
-
-    const cancelTrack = createTrackEffect()
-
-    const newValue = getter()
+  let oldValue: unknown
+  const effect = new TrackerEffect(getter, () => {
+    const newValue = effect.run()
     if (deep || !Object.is(oldValue, newValue)) cb(newValue, oldValue)
     oldValue = newValue
+  })
 
-    getters = cancelTrack()
-
-    addListenerTrackEffect(getters, start)
-  }
-
-  const cancelTrack = createTrackEffect()
-  // eslint-disable-next-line functional/no-let
-  let oldValue = getter()
-  getters = cancelTrack()
-  addListenerTrackEffect(getters, start)
+  oldValue = effect.run()
 
   if (options?.immediate) cb(oldValue, undefined)
 
   return () => {
-    stop = true
-    removeListenerTrackEffect(getters, start)
+    effect.stop()
   }
 }
 
 export default watch
+
+global.__DEV__ = true
+
+const array = reactive([] as number[])
+watch(array, (value) => {
+  console.log(value)
+})
+array.push(1)
+array.push(1)

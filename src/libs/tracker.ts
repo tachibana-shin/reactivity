@@ -79,20 +79,24 @@ function emitSetter(
   newValue?: unknown,
   oldValue?: unknown
 ) {
-  trackerSetter
-    .get(target)
-    ?.get(prop ?? "size")
-    ?.forEach((cb) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      cb(target, type as any, prop as any, newValue, oldValue)
-    })
-  trackerSetter
-    .get(target)
-    ?.get(SYMBOL_FORCE_UPDATE)
-    ?.forEach((cb) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      cb(target, type as any, prop as any, newValue, oldValue)
-    })
+  Promise.resolve().then(() => {
+    trackerSetter
+      .get(target)
+      ?.get(prop ?? "size")
+      ?.forEach((cb, index, root) => {
+        root.splice(index, 1)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        cb(target, type as any, prop as any, newValue, oldValue)
+      })
+    trackerSetter
+      .get(target)
+      ?.get(SYMBOL_FORCE_UPDATE)
+      ?.forEach((cb, index, root) => {
+        root.splice(index, 1)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        cb(target, type as any, prop as any, newValue, oldValue)
+      })
+  })
 }
 
 export { emitSetter }
@@ -154,6 +158,7 @@ export function addListenerTrackEffect(
       let tracksProp = trackProps!.get(SYMBOL_FORCE_UPDATE)
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       if (!tracksProp) trackProps!.set(SYMBOL_FORCE_UPDATE, (tracksProp = []))
+      Promise.resolve().then(() => tracksProp.splice(tracksProp.indexOf(cb) >>> 0, 1))
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       tracksProp!.push(cb)
       return
@@ -163,6 +168,7 @@ export function addListenerTrackEffect(
       let tracksProp = trackProps!.get(prop)
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       if (!tracksProp) trackProps!.set(prop, (tracksProp = []))
+      tracksProp.splice(tracksProp.indexOf(cb) >>> 0, 1)
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       tracksProp!.push(cb)
     })
@@ -172,6 +178,7 @@ export function removeListenerTrackEffect(
   source: ReturnType<ReturnType<typeof createTrackEffect>>,
   cb: typeof emitSetter
 ): void {
+  return
   source.forEach((props, target) => {
     const trackProps = trackerSetter.get(target)
     if (!trackProps) return
